@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export type Status = 'Working' | 'Break' | 'Meeting' | 'Offline';
 
@@ -22,88 +22,65 @@ export interface Member {
 
 interface MembersState {
   members: Member[];
+  loading: boolean;
+  error?: string;
 }
 
-const initialMembers: Member[] = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'john.doe@company.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
-    status: 'Working',
-    tasks: [
-      {
-        id: 't1',
-        title: 'Review pull requests',
-        dueDate: '2025-12-01',
-        progress: 60,
-        completed: false,
-        assignedTo: '1',
-      },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Sarah Smith',
-    email: 'sarah.smith@company.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-    status: 'Meeting',
-    tasks: [
-      {
-        id: 't2',
-        title: 'Update documentation',
-        dueDate: '2025-11-30',
-        progress: 80,
-        completed: false,
-        assignedTo: '2',
-      },
-      {
-        id: 't3',
-        title: 'Client presentation',
-        dueDate: '2025-11-28',
-        progress: 100,
-        completed: true,
-        assignedTo: '2',
-      },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Mike Johnson',
-    email: 'mike.johnson@company.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike',
-    status: 'Break',
-    tasks: [],
-  },
-  {
-    id: '4',
-    name: 'Emily Davis',
-    email: 'emily.davis@company.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Emily',
-    status: 'Working',
-    tasks: [
-      {
-        id: 't4',
-        title: 'Bug fixes for release',
-        dueDate: '2025-11-29',
-        progress: 40,
-        completed: false,
-        assignedTo: '4',
-      },
-    ],
-  },
-  {
-    id: '5',
-    name: 'Alex Chen',
-    email: 'alex.chen@company.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
-    status: 'Offline',
-    tasks: [],
-  },
+const statusPool: Status[] = ['Working', 'Meeting', 'Break', 'Offline'];
+const taskTemplates = [
+  'Prepare sprint report',
+  'Update project documentation',
+  'Review pull requests',
+  'Client presentation prep',
+  'Fix priority bugs',
+  'Plan team sync',
 ];
 
+const createTasksForMember = (memberId: string, seed: number): Task[] => {
+  return Array.from({ length: 2 }, (_, index) => {
+    const template = taskTemplates[(seed + index) % taskTemplates.length];
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + (index + 1) * 2);
+    const progress = Math.floor(Math.random() * 100);
+
+    return {
+      id: `${memberId}-task-${index}`,
+      title: template,
+      dueDate: dueDate.toISOString().split('T')[0],
+      progress,
+      completed: progress >= 100,
+      assignedTo: memberId,
+    };
+  });
+};
+
+export const fetchMembers = createAsyncThunk<Member[]>('members/fetchRandom', async () => {
+  const response = await fetch('https://randomuser.me/api/?results=8&nat=us,gb,ca');
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch team members');
+  }
+
+  const data = await response.json();
+
+  return data.results.map((user: any, index: number) => {
+    const memberStatus = statusPool[index % statusPool.length];
+
+    return {
+      id: user.login.uuid,
+      name: `${user.name.first} ${user.name.last}`,
+      email: user.email,
+      avatar: user.picture.large,
+      status: memberStatus,
+      tasks: createTasksForMember(user.login.uuid, index),
+    } as Member;
+  });
+});
+
 const initialState: MembersState = {
-  members: initialMembers,
+  members: [],
+  loading: false,
+  error: undefined,
 };
 
 const membersSlice = createSlice({
@@ -145,6 +122,21 @@ const membersSlice = createSlice({
         }
       }
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchMembers.pending, (state) => {
+        state.loading = true;
+        state.error = undefined;
+      })
+      .addCase(fetchMembers.fulfilled, (state, action) => {
+        state.members = action.payload;
+        state.loading = false;
+      })
+      .addCase(fetchMembers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      });
   },
 });
 

@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useAppSelector } from '@/redux/hooks';
+import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import Header from '@/components/Header';
 import TeamLeadView from '@/components/TeamLeadView';
 import TeamMemberView from '@/components/TeamMemberView';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { fetchMembers, Status } from '@/redux/slices/membersSlice';
+import { setUser } from '@/redux/slices/roleSlice';
 import {
   LayoutDashboard,
   FolderKanban,
   Ticket,
   Users,
   Briefcase,
-  Settings,
   ChevronRight,
   ChevronDown,
   CalendarClock,
@@ -20,6 +21,7 @@ import {
   Clock8,
   Coffee,
 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard, target: 'overview-section' },
@@ -27,16 +29,6 @@ const navItems = [
   { label: 'Projects', icon: FolderKanban },
   { label: 'Tickets', icon: Ticket },
   { label: 'Clients', icon: Briefcase },
-];
-
-const productivityTrend = [
-  { label: 'Jan', value: 52 },
-  { label: 'Feb', value: 61 },
-  { label: 'Mar', value: 58 },
-  { label: 'Apr', value: 65 },
-  { label: 'May', value: 63 },
-  { label: 'Jun', value: 69 },
-  { label: 'Jul', value: 67 },
 ];
 
 const upcomingInterviews = [
@@ -57,31 +49,30 @@ const upcomingInterviews = [
   },
 ];
 
-const linePathFor = (data: { value: number }[]) => {
-  if (data.length < 2) {
-    return '';
-  }
-
-  const values = data.map((item) => item.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-
-  return data
-    .map((item, index) => {
-      const x = (index / (data.length - 1)) * 100;
-      const normalized = (item.value - min) / range;
-      const y = 100 - normalized * 80 - 10;
-      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-    })
-    .join(' ');
+const chartOrder: Status[] = ['Working', 'Meeting', 'Break', 'Offline'];
+const pieColors: Record<Status, string> = {
+  Working: '#22c55e',
+  Meeting: '#2563eb',
+  Break: '#f97316',
+  Offline: '#94a3b8',
 };
 
 const Dashboard = () => {
-  const currentRole = useAppSelector((state) => state.role.currentRole);
+  const dispatch = useAppDispatch();
+  const { currentRole, currentUser } = useAppSelector((state) => state.role);
   const isLead = currentRole === 'lead';
-  const members = useAppSelector((state) => state.members.members);
+  const { members, loading } = useAppSelector((state) => state.members);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchMembers());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (members.length && !members.some((member) => member.name === currentUser)) {
+      dispatch(setUser(members[0].name));
+    }
+  }, [members, currentUser, dispatch]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
@@ -142,8 +133,11 @@ const Dashboard = () => {
     },
   ];
 
-  const trendPath = linePathFor(productivityTrend);
-  const areaPath = trendPath ? `${trendPath} L 100 100 L 0 100 Z` : '';
+  const chartData = useMemo(
+    () => chartOrder.map((status) => ({ label: status, value: statusCounts[status] })),
+    [statusCounts]
+  );
+  const showLoadingState = loading && members.length === 0;
 
   const handleNavClick = (target?: string) => {
     if (target) {
@@ -182,23 +176,18 @@ const Dashboard = () => {
               ))}
             </nav>
 
-            <div className="mt-10 space-y-4 rounded-2xl bg-white/5 p-4">
-              <div className="text-sm text-white/70">
-                <p className="font-semibold mb-1">Need quick access?</p>
-                <p>Pin key links here to keep the workspace focused.</p>
-              </div>
-              <Button variant="secondary" className="w-full gap-2 rounded-xl bg-white text-indigo-900">
-                <Settings className="h-4 w-4" />
-                Settings
-              </Button>
-            </div>
           </aside>
         )}
 
         <div className="flex-1 flex flex-col">
           <Header isLead={isLead} isDarkMode={isDarkMode} onToggleDarkMode={setIsDarkMode} />
           <main className="flex-1 overflow-y-auto px-4 py-8 md:px-8 lg:px-10 space-y-8 bg-slate-50">
-            {isLead ? (
+            {showLoadingState ? (
+              <Card className="p-6 shadow-sm border-slate-100">
+                <p className="text-sm text-slate-500">Syncing your team from RandomUser…</p>
+              </Card>
+            ) : null}
+            {isLead && !showLoadingState ? (
               <div id="overview-section" className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
                 <div className="space-y-6">
                   <Card className="p-6 shadow-sm border-slate-100">
@@ -219,42 +208,44 @@ const Dashboard = () => {
                   </div>
 
                   <div className="mt-6">
-                    <div className="grid grid-cols-7 text-xs text-slate-400">
-                      {productivityTrend.map((item) => (
-                        <span key={item.label}>{item.label}</span>
-                      ))}
-                    </div>
-                    <div className="mt-4 h-48 w-full">
-                      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
-                        <defs>
-                          <linearGradient id="pulseLine" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="hsl(var(--primary))" />
-                            <stop offset="100%" stopColor="#ff7eb3" />
-                          </linearGradient>
-                          <linearGradient id="pulseArea" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.3" />
-                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                        {areaPath && <path d={areaPath} fill="url(#pulseArea)" stroke="none" />}
-                        {trendPath && (
-                          <path d={trendPath} stroke="url(#pulseLine)" strokeWidth={2.5} fill="none" strokeLinecap="round" />
-                        )}
-                      </svg>
+                    <div className="mt-4 h-56 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={chartData}
+                            dataKey="value"
+                            nameKey="label"
+                            innerRadius="55%"
+                            outerRadius="80%"
+                            paddingAngle={2}
+                            stroke="none"
+                          >
+                            {chartData.map((entry) => (
+                              <Cell key={entry.label} fill={pieColors[entry.label as Status]} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
+                            formatter={(value: number, name: string) => [`${value} people`, name]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-6 text-sm">
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Engagement</p>
-                        <p className="text-xl font-semibold text-slate-900">84%</p>
+                        <p className="text-xs uppercase tracking-wide text-slate-400">Working now</p>
+                        <p className="text-xl font-semibold text-slate-900">{statusCounts.Working}</p>
                         <p className="text-xs text-emerald-500 flex items-center gap-1">
                           <TrendingUp className="h-3 w-3" />
-                          +6% vs last month
+                          Active teammates
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs uppercase tracking-wide text-slate-400">Pulse score</p>
-                        <p className="text-xl font-semibold text-slate-900">4.6/5</p>
-                        <p className="text-xs text-slate-500">Healthy trend</p>
+                        <p className="text-xs uppercase tracking-wide text-slate-400">Away or offline</p>
+                        <p className="text-xl font-semibold text-slate-900">
+                          {statusCounts.Break + statusCounts.Offline}
+                        </p>
+                        <p className="text-xs text-slate-500">Need follow ups</p>
                       </div>
                     </div>
                   </div>
@@ -393,7 +384,9 @@ const Dashboard = () => {
               ) : (
                 <div className="space-y-6">
                   <Card className="p-6 shadow-sm border-slate-100">
-                    <p className="text-sm text-slate-500">You are viewing the simplified member space.</p>
+                    <p className="text-sm text-slate-500">
+                      You are viewing the simplified member space synced from randomuser.me.
+                    </p>
                   </Card>
                   <TeamMemberView />
                 </div>
