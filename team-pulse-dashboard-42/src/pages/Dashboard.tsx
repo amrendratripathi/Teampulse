@@ -21,12 +21,25 @@ import {
   Clock8,
   Coffee,
 } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  AreaChart,
+  Area,
+} from 'recharts';
 
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard, target: 'overview-section' },
   { label: 'Team', icon: Users, target: 'team-section' },
-  { label: 'Status', icon: FolderKanban, target: 'team-section' },
+  { label: 'Status', icon: FolderKanban, target: 'status-section' },
   { label: 'Clients', icon: Briefcase },
 ];
 
@@ -138,6 +151,23 @@ const Dashboard = () => {
     () => chartOrder.map((status) => ({ label: status, value: statusCounts[status] })),
     [statusCounts]
   );
+
+  const trendData = useMemo(() => {
+    const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+    if (!totalMembers) {
+      return labels.map((label) => ({ label, value: 0 }));
+    }
+
+    const activeRatio = totalMembers ? activeCount / totalMembers : 0;
+    return labels.map((label, index) => {
+      const wave = Math.sin((index / (labels.length - 1)) * Math.PI) * 0.2; // smooth hump
+      const normalized = Math.min(0.95, Math.max(0.25, activeRatio + wave));
+      return {
+        label,
+        value: Math.round(normalized * totalMembers),
+      };
+    });
+  }, [activeCount, totalMembers]);
   const showLoadingState = loading && members.length === 0;
 
   const handleNavClick = (target?: string) => {
@@ -211,25 +241,39 @@ const Dashboard = () => {
                   <div className="mt-6">
                     <div className="mt-4 h-56 w-full">
                       <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={chartData}
-                            dataKey="value"
-                            nameKey="label"
-                            innerRadius="55%"
-                            outerRadius="80%"
-                            paddingAngle={2}
-                            stroke="none"
-                          >
-                            {chartData.map((entry) => (
-                              <Cell key={entry.label} fill={pieColors[entry.label as Status]} />
-                            ))}
-                          </Pie>
+                        <AreaChart data={trendData} margin={{ top: 8, right: 12, left: -24, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="trendStroke" x1="0" y1="0" x2="1" y2="0">
+                              <stop offset="0%" stopColor="#ec4899" />
+                              <stop offset="100%" stopColor="#f97316" />
+                            </linearGradient>
+                            <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#f472b6" stopOpacity="0.35" />
+                              <stop offset="100%" stopColor="#fb923c" stopOpacity="0.05" />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                          <XAxis
+                            dataKey="label"
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                            axisLine={false}
+                            tickLine={false}
+                          />
+                          <YAxis hide domain={[0, totalMembers]} />
                           <Tooltip
                             contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0' }}
-                            formatter={(value: number, name: string) => [`${value} people`, name]}
+                            labelStyle={{ fontWeight: 600 }}
+                            formatter={(value: number) => [`${value} teammates`, 'Active']}
                           />
-                        </PieChart>
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            stroke="url(#trendStroke)"
+                            strokeWidth={3}
+                            fill="url(#trendFill)"
+                            activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
+                          />
+                        </AreaChart>
                       </ResponsiveContainer>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-6 text-sm">
@@ -252,7 +296,7 @@ const Dashboard = () => {
                   </div>
                 </Card>
 
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="status-section">
                   <Card className="p-5 shadow-sm border-slate-100">
                     <p className="text-sm text-slate-500">Employees Availability</p>
                     <div className="mt-4 grid grid-cols-2 gap-3">
