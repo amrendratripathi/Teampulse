@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Search, Bell, Users, User, SunMedium, Moon } from 'lucide-react';
+import { Search, Users, User, SunMedium, Moon } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { switchRole } from '@/redux/slices/roleSlice';
 import { Button } from './ui/button';
@@ -65,16 +65,6 @@ const Header = ({ isLead, isDarkMode, onToggleDarkMode }: HeaderProps) => {
             <Switch checked={isDarkMode} onCheckedChange={onToggleDarkMode} />
             <Moon className={`h-4 w-4 ${isDarkMode ? 'text-indigo-400' : 'text-slate-400'}`} />
           </div>
-
-          {isLead && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="rounded-full border-slate-200 text-slate-500 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300"
-            >
-              <Bell className="h-4 w-4" />
-            </Button>
-          )}
 
           <Button
             onClick={handleRoleSwitch}

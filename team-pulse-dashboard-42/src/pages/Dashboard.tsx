@@ -26,8 +26,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 const navItems = [
   { label: 'Overview', icon: LayoutDashboard, target: 'overview-section' },
   { label: 'Team', icon: Users, target: 'team-section' },
-  { label: 'Projects', icon: FolderKanban },
-  { label: 'Tickets', icon: Ticket },
+  { label: 'Status', icon: FolderKanban, target: 'team-section' },
   { label: 'Clients', icon: Briefcase },
 ];
 
@@ -65,8 +64,10 @@ const Dashboard = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchMembers());
-  }, [dispatch]);
+    if (!members.length && !loading) {
+      dispatch(fetchMembers());
+    }
+  }, [dispatch, members.length, loading]);
 
   useEffect(() => {
     if (members.length && !members.some((member) => member.name === currentUser)) {
@@ -146,7 +147,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-background text-foreground transition-colors">
       <div className="flex min-h-screen">
         {isLead && (
           <aside className="hidden lg:flex w-64 flex-col bg-gradient-to-b from-indigo-950 via-indigo-900 to-indigo-950 text-white px-6 py-8 sticky top-0 h-screen">
@@ -168,7 +169,7 @@ const Dashboard = () => {
                   key={item.label}
                   type="button"
                   onClick={() => handleNavClick(item.target)}
-                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                  className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white hover:translate-x-1 hover:shadow-lg/30"
                 >
                   <item.icon className="h-4 w-4" />
                   {item.label}
@@ -179,9 +180,9 @@ const Dashboard = () => {
           </aside>
         )}
 
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-background">
           <Header isLead={isLead} isDarkMode={isDarkMode} onToggleDarkMode={setIsDarkMode} />
-          <main className="flex-1 overflow-y-auto px-4 py-8 md:px-8 lg:px-10 space-y-8 bg-slate-50">
+          <main className="flex-1 overflow-y-auto px-4 py-8 md:px-8 lg:px-10 space-y-8">
             {showLoadingState ? (
               <Card className="p-6 shadow-sm border-slate-100">
                 <p className="text-sm text-slate-500">Syncing your team from RandomUser…</p>
@@ -367,7 +368,7 @@ const Dashboard = () => {
 
             <div
               className={`space-y-4 ${isLead ? '' : 'max-w-5xl mx-auto w-full'}`}
-              id={isLead ? 'team-section' : undefined}
+              id="team-section"
             >
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-semibold text-slate-900">
@@ -383,11 +384,6 @@ const Dashboard = () => {
                 </Card>
               ) : (
                 <div className="space-y-6">
-                  <Card className="p-6 shadow-sm border-slate-100">
-                    <p className="text-sm text-slate-500">
-                      You are viewing the simplified member space synced from randomuser.me.
-                    </p>
-                  </Card>
                   <TeamMemberView />
                 </div>
               )}
