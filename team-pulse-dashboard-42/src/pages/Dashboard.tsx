@@ -10,7 +10,6 @@ import { setUser } from '@/redux/slices/roleSlice';
 import {
   LayoutDashboard,
   FolderKanban,
-  Ticket,
   Users,
   Briefcase,
   ChevronRight,
@@ -22,13 +21,8 @@ import {
   Coffee,
 } from 'lucide-react';
 import {
-  PieChart,
-  Pie,
-  Cell,
   ResponsiveContainer,
   Tooltip,
-  LineChart,
-  Line,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -62,12 +56,6 @@ const upcomingInterviews = [
 ];
 
 const chartOrder: Status[] = ['Working', 'Meeting', 'Break', 'Offline'];
-const pieColors: Record<Status, string> = {
-  Working: '#22c55e',
-  Meeting: '#2563eb',
-  Break: '#f97316',
-  Offline: '#94a3b8',
-};
 
 const Dashboard = () => {
   const dispatch = useAppDispatch();
