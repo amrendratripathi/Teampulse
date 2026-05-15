@@ -141,7 +141,7 @@ const Dashboard = () => {
   );
 
   const trendData = useMemo(() => {
-    const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+    const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul','Aug',];
     if (!totalMembers) {
       return labels.map((label) => ({ label, value: 0 }));
     }
